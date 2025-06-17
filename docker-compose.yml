@@ -1,0 +1,77 @@
+version: '3.8'
+
+services:
+  # Install service buat laravel
+  aplikasi:
+    build:
+      context: .
+      dockerfile: docker/app/Dockerfile
+    container_name: remedial-app
+    restart: unless-stopped
+    volumes:
+      - .:/var/www/html
+    networks:
+      - network-remed
+    depends_on:
+      - database
+    healthcheck:
+      test: ["CMD", "php", "artisan", "about", "--json"]
+      interval: 45s
+      timeout: 30s
+      retries: 3
+      start_period: 60s
+
+  # service buat webserver
+  webserver:
+    image: nginx:alpine
+    container_name: remedial-webserver
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    volumes:
+      - .:/var/www/html
+      - ./docker/nginx/default.conf:/etc/nginx/conf.d/default.conf
+    networks:
+      - network-remed
+    depends_on:
+      - aplikasi
+
+  # Database (pake mysql)
+  database:
+    image: mysql:8.0
+    container_name: remedial-db
+    restart: unless-stopped
+    ports:
+      - "3306:3306"
+    environment:
+      MYSQL_DATABASE: ${DB_DATABASE}
+      MYSQL_ALLOW_EMPTY_PASSWORD: 'yes'
+    volumes:
+      - volume-remed:/var/lib/mysql
+    networks:
+      - network-remed
+
+  # Phpmyadmin (buat ui)
+  phpmyadmin:
+    image: phpmyadmin/phpmyadmin
+    container_name: remedial-phpmyadmin
+    restart: unless-stopped
+    ports:
+      - "8081:80"
+    environment:
+      PMA_HOST: database
+      PMA_PORT: 3306
+    networks:
+      - network-remed
+    depends_on:
+      - database
+
+# networknya
+networks:
+  network-remed:
+    driver: bridge
+
+# volume nya
+volumes:
+  volume-remed:
+    driver: local
